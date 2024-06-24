@@ -768,8 +768,13 @@ set(ve_SOURCES
   ${GENERIC_TF_SOURCES}
   ${GENERIC_SOURCES})
 
-add_custom_target(builtins)
-set_target_properties(builtins PROPERTIES FOLDER "Compiler-RT/Metatargets")
+set(x86_SOURCES
+  ${GENERIC_SOURCES}
+  ${GENERIC_TF_SOURCES}
+  ${x86_ARCH_SOURCES}
+)
+add_custom_target(rt-builtins)
+set_target_properties(rt-builtins PROPERTIES FOLDER "Compiler-RT/Metatargets")
 
 option(COMPILER_RT_ENABLE_SOFTWARE_INT128
   "Enable the int128 builtin routines for all targets."
@@ -880,13 +885,13 @@ else ()
                               SOURCES ${${arch}_SOURCES}
                               DEFS ${BUILTIN_DEFS}
                               CFLAGS ${BUILTIN_CFLAGS_${arch}}
-                              PARENT_TARGET builtins)
+                              PARENT_TARGET rt-builtins)
       cmake_pop_check_state()
     endif ()
   endforeach ()
 endif ()
 
-add_dependencies(compiler-rt builtins)
+add_dependencies(compiler-rt rt-builtins)
 
 option(COMPILER_RT_BUILD_STANDALONE_LIBATOMIC
   "Build standalone shared atomic library."
