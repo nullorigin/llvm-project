@@ -1150,6 +1150,18 @@ def DoubleConst1 : PatLeaf<(fpimm), [{
   return &N->getValueAPF().getSemantics() == &llvm::APFloat::IEEEdouble() &&
          N->getValueAPF().convertToDouble() == 1.0;
 }]>;
+// Constant -1.0 (double)
+def DoubleConstNeg1 : PatLeaf<(fpimm), [{
+  return &N->getValueAPF().getSemantics() == &llvm::APFloat::IEEEdouble() &&
+         N->getValueAPF().convertToDouble() == -1.0;
+}]>;
+
+
+// Constant -X -> X (double)
+def NegDoubleConst : SDNodeXForm<fpimm, [{
+  return CurDAG->getTargetConstantFP(-(N->getValueAPF()),
+                                     SDLoc(N), MVT::f64);
+}]>;
 
 // Loads FP16 constant into a register.
 //
@@ -1224,6 +1236,11 @@ def FDIV64ri :
             (ins Float64Regs:$a, f64imm:$b),
             "div.rn.f64 \t$dst, $a, $b;",
             [(set Float64Regs:$dst, (fdiv Float64Regs:$a, fpimm:$b))]>;
+
+// fdiv will be converted to rcp
+// fneg (fdiv 1.0, X) => fneg (rcp.rn X)
+def : Pat<(fdiv DoubleConstNeg1:$a, Float64Regs:$b),
+          (FNEGf64 (FDIV641r (NegDoubleConst node:$a), Float64Regs:$b))>;
 
 //
 // F32 Approximate reciprocal
@@ -2097,6 +2114,8 @@ let IsSimpleMove=1, hasSideEffects=0 in {
                            "mov.u32 \t$dst, $sss;", []>;
   def IMOV64rr : NVPTXInst<(outs Int64Regs:$dst), (ins Int64Regs:$sss),
                            "mov.u64 \t$dst, $sss;", []>;
+  def IMOV128rr : NVPTXInst<(outs Int128Regs:$dst), (ins Int128Regs:$sss),
+                           "mov.b128 \t$dst, $sss;", []>;
 
   def IMOVB16rr : NVPTXInst<(outs Int16Regs:$dst), (ins Int16Regs:$sss),
                            "mov.b16 \t$dst, $sss;", []>;
@@ -3545,6 +3564,9 @@ let hasSideEffects = false in {
   def V2I32toI64 : NVPTXInst<(outs Int64Regs:$d),
                              (ins Int32Regs:$s1, Int32Regs:$s2),
                              "mov.b64 \t$d, {{$s1, $s2}};", []>;
+  def V2I64toI128 : NVPTXInst<(outs Int128Regs:$d),
+                              (ins Int64Regs:$s1, Int64Regs:$s2),
+                              "mov.b128 \t$d, {{$s1, $s2}};", []>;
   def V2F32toF64 : NVPTXInst<(outs Float64Regs:$d),
                              (ins Float32Regs:$s1, Float32Regs:$s2),
                              "mov.b64 \t$d, {{$s1, $s2}};", []>;
@@ -3560,6 +3582,9 @@ let hasSideEffects = false in {
   def I64toV2I32 : NVPTXInst<(outs Int32Regs:$d1, Int32Regs:$d2),
                              (ins Int64Regs:$s),
                              "mov.b64 \t{{$d1, $d2}}, $s;", []>;
+  def I128toV2I64: NVPTXInst<(outs Int64Regs:$d1, Int64Regs:$d2),
+                              (ins Int128Regs:$s),
+                              "mov.b128 \t{{$d1, $d2}}, $s;", []>;
   def F64toV2F32 : NVPTXInst<(outs Float32Regs:$d1, Float32Regs:$d2),
                              (ins Float64Regs:$s),
                              "mov.b64 \t{{$d1, $d2}}, $s;", []>;
@@ -3629,7 +3654,7 @@ def : Pat<(i32 (ctlz (i32 Int32Regs:$a))), (CLZr32 Int32Regs:$a)>;
 // ptx value to 64 bits to match the ISD node's semantics, unless we know we're
 // truncating back down to 32 bits.
 def : Pat<(i64 (ctlz Int64Regs:$a)), (CVT_u64_u32 (CLZr64 Int64Regs:$a), CvtNONE)>;
-def : Pat<(i32 (trunc (ctlz Int64Regs:$a))), (CLZr64 Int64Regs:$a)>;
+def : Pat<(i32 (trunc (i64 (ctlz Int64Regs:$a)))), (CLZr64 Int64Regs:$a)>;
 
 // For 16-bit ctlz, we zero-extend to 32-bit, perform the count, then trunc the
 // result back to 16-bits if necessary.  We also need to subtract 16 because
@@ -3667,7 +3692,7 @@ def : Pat<(i32 (ctpop (i32 Int32Regs:$a))), (POPCr32 Int32Regs:$a)>;
 // pattern that avoids the type conversion if we're truncating the result to
 // i32 anyway.
 def : Pat<(ctpop Int64Regs:$a), (CVT_u64_u32 (POPCr64 Int64Regs:$a), CvtNONE)>;
-def : Pat<(i32 (trunc (ctpop Int64Regs:$a))), (POPCr64 Int64Regs:$a)>;
+def : Pat<(i32 (trunc (i64 (ctpop Int64Regs:$a)))), (POPCr64 Int64Regs:$a)>;
 
 // For 16-bit, we zero-extend to 32-bit, then trunc the result back to 16-bits.
 // If we know that we're storing into an i32, we can avoid the final trunc.
@@ -3883,3 +3908,31 @@ def : Pat <
   (V2I32toI64
     (INT_NVVM_PRMT (I64toI32H Int64Regs:$a), (i32 0), (i32 0x0123)),
     (INT_NVVM_PRMT (I64toI32L Int64Regs:$a), (i32 0), (i32 0x0123)))>;
+
+
+////////////////////////////////////////////////////////////////////////////////
+// PTX Fence instructions
+////////////////////////////////////////////////////////////////////////////////
+
+def atomic_thread_fence_seq_cst_sys :
+  NVPTXInst<(outs), (ins), "fence.sc.sys;", []>,
+  Requires<[hasPTX<60>, hasSM<70>]>;
+def atomic_thread_fence_acq_rel_sys :
+  NVPTXInst<(outs), (ins), "fence.acq_rel.sys;", []>,
+  Requires<[hasPTX<60>, hasSM<70>]>;
+
+def : Pat<(atomic_fence (i64 4), (i64 1)), (atomic_thread_fence_acq_rel_sys)>, // acquire(4) sys(1)
+      Requires<[hasPTX<60>, hasSM<70>]>;
+def : Pat<(atomic_fence (i64 5), (i64 1)), (atomic_thread_fence_acq_rel_sys)>, // release(5) sys(1)
+      Requires<[hasPTX<60>, hasSM<70>]>;
+def : Pat<(atomic_fence (i64 6), (i64 1)), (atomic_thread_fence_acq_rel_sys)>, // acq_rel(6) sys(1)
+      Requires<[hasPTX<60>, hasSM<70>]>;
+def : Pat<(atomic_fence (i64 7), (i64 1)), (atomic_thread_fence_seq_cst_sys)>, // seq_cst(7) sys(1)
+      Requires<[hasPTX<60>, hasSM<70>]>;
+
+
+// If PTX<60 or SM<70, we fall back to MEMBAR:
+def : Pat<(atomic_fence (i64 4), (i64 1)), (INT_MEMBAR_SYS)>; // acquire(4) sys(1)
+def : Pat<(atomic_fence (i64 5), (i64 1)), (INT_MEMBAR_SYS)>; // release(5) sys(1)
+def : Pat<(atomic_fence (i64 6), (i64 1)), (INT_MEMBAR_SYS)>; // acq_rel(6) sys(1)
+def : Pat<(atomic_fence (i64 7), (i64 1)), (INT_MEMBAR_SYS)>; // seq_cst(7) sys(1)

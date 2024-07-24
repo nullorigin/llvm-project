@@ -192,22 +192,31 @@ bool WindowScheduler::initialize() {
     return false;
   }
   // Check each MI in MBB.
-  SmallVector<Register, 8> PhiDefs;
+  SmallSet<Register, 8> PrevDefs;
+  SmallSet<Register, 8> PrevUses;
+  auto IsLoopCarried = [&](MachineInstr &Phi) {
+    // Two cases are checked here: (1)The virtual register defined by the
+    // preceding phi is used by the succeeding phi;(2)The preceding phi uses the
+    // virtual register defined by the succeeding phi.
+    if (PrevUses.count(Phi.getOperand(0).getReg()))
+      return true;
+    PrevDefs.insert(Phi.getOperand(0).getReg());
+    for (unsigned I = 1, E = Phi.getNumOperands(); I != E; I += 2) {
+      if (PrevDefs.count(Phi.getOperand(I).getReg()))
+        return true;
+      PrevUses.insert(Phi.getOperand(I).getReg());
+    }
+    return false;
+  };
   auto PLI = TII->analyzeLoopForPipelining(MBB);
   for (auto &MI : *MBB) {
     if (MI.isMetaInstruction() || MI.isTerminator())
       continue;
     if (MI.isPHI()) {
-      for (auto Def : PhiDefs)
-        if (MI.readsRegister(Def, TRI)) {
-          LLVM_DEBUG(
-              dbgs()
-              << "Consecutive phis are not allowed in window scheduling!\n");
-          return false;
-        }
-      for (auto Def : MI.defs())
-        if (Def.isReg())
-          PhiDefs.push_back(Def.getReg());
+      if (IsLoopCarried(MI)) {
+        LLVM_DEBUG(dbgs() << "Loop carried phis are not supported yet!\n");
+        return false;
+      }
       ++SchedPhiNum;
       ++BestOffset;
     } else
@@ -223,8 +232,11 @@ bool WindowScheduler::initialize() {
       return false;
     }
     for (auto &Def : MI.all_defs())
-      if (Def.isReg() && Def.getReg().isPhysical())
+      if (Def.isReg() && Def.getReg().isPhysical()) {
+        LLVM_DEBUG(dbgs() << "Physical registers are not supported in "
+                             "window scheduling!\n");
         return false;
+      }
   }
   if (SchedInstrNum <= WindowRegionLimit) {
     LLVM_DEBUG(dbgs() << "There are too few MIs in the window region!\n");
@@ -428,12 +440,16 @@ int WindowScheduler::calculateMaxCycle(ScheduleDAGInstrs &DAG,
       int PredCycle = getOriCycle(PredMI);
       ExpectCycle = std::max(ExpectCycle, PredCycle + (int)Pred.getLatency());
     }
-    // ResourceManager can be used to detect resource conflicts between the
-    // current MI and the previously inserted MIs.
-    while (!RM.canReserveResources(*SU, CurCycle) || CurCycle < ExpectCycle) {
-      ++CurCycle;
-      if (CurCycle == (int)WindowIILimit)
-        return CurCycle;
+    // Zero cost instructions do not need to check resource.
+    if (!TII->isZeroCost(MI.getOpcode())) {
+      // ResourceManager can be used to detect resource conflicts between the
+      // current MI and the previously inserted MIs.
+      while (!RM.canReserveResources(*SU, CurCycle) || CurCycle < ExpectCycle) {
+        ++CurCycle;
+        if (CurCycle == (int)WindowIILimit)
+          return CurCycle;
+      }
+      RM.reserveResources(*SU, CurCycle);
     }
     RM.reserveResources(*SU, CurCycle);
     OriToCycle[getOriMI(&MI)] = CurCycle;
