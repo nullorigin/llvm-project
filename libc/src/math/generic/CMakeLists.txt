@@ -111,7 +111,7 @@ add_entrypoint_object(
   DEPENDS
     libc.src.__support.macros.properties.types
     libc.src.__support.FPUtil.nearest_integer_operations
-    libc.src.__support.macros.properties.architectures
+    libc.src.__support.macros.properties.cpu_features
   FLAGS
     ROUND_OPT
 )
@@ -548,7 +548,7 @@ add_entrypoint_object(
   DEPENDS
     libc.src.__support.macros.properties.types
     libc.src.__support.FPUtil.nearest_integer_operations
-    libc.src.__support.macros.properties.architectures
+    libc.src.__support.macros.properties.cpu_features
   FLAGS
     ROUND_OPT
 )
@@ -617,7 +617,7 @@ add_entrypoint_object(
   DEPENDS
     libc.src.__support.macros.properties.types
     libc.src.__support.FPUtil.nearest_integer_operations
-    libc.src.__support.macros.properties.architectures
+    libc.src.__support.macros.properties.cpu_features
   FLAGS
     ROUND_OPT
 )
@@ -686,7 +686,7 @@ add_entrypoint_object(
   DEPENDS
     libc.src.__support.macros.properties.types
     libc.src.__support.FPUtil.nearest_integer_operations
-    libc.src.__support.macros.properties.architectures
+    libc.src.__support.macros.properties.cpu_features
   FLAGS
     ROUND_OPT
 )
@@ -755,7 +755,7 @@ add_entrypoint_object(
   DEPENDS
     libc.src.__support.macros.properties.types
     libc.src.__support.FPUtil.nearest_integer_operations
-    libc.src.__support.macros.properties.architectures
+    libc.src.__support.macros.properties.cpu_features
   FLAGS
     ROUND_OPT
 )
@@ -948,7 +948,7 @@ add_entrypoint_object(
   DEPENDS
     libc.src.__support.macros.properties.types
     libc.src.__support.FPUtil.nearest_integer_operations
-    libc.src.__support.macros.properties.architectures
+    libc.src.__support.macros.properties.cpu_features
   FLAGS
     ROUND_OPT
 )
@@ -3849,6 +3849,26 @@ add_entrypoint_object(
 )
 
 add_entrypoint_object(
+  atan2
+  SRCS
+    atan2.cpp
+  HDRS
+    ../atan2.h
+  COMPILE_OPTIONS
+    -O3
+  DEPENDS
+    .inv_trigf_utils
+    libc.src.__support.FPUtil.double_double
+    libc.src.__support.FPUtil.dyadic_float
+    libc.src.__support.FPUtil.fp_bits
+    libc.src.__support.FPUtil.multiply_add
+    libc.src.__support.FPUtil.nearest_integer
+    libc.src.__support.FPUtil.polyeval
+    libc.src.__support.FPUtil.rounding_mode
+    libc.src.__support.macros.optimization
+)
+
+add_entrypoint_object(
   scalblnf16
   SRCS
     scalblnf16.cpp
@@ -3966,6 +3986,42 @@ add_entrypoint_object(
 )
 
 add_entrypoint_object(
+  totalordermag
+  SRCS
+    totalordermag.cpp
+  HDRS
+    ../totalordermag.h
+  DEPENDS
+    libc.src.__support.FPUtil.basic_operations
+  COMPILE_OPTIONS
+    -O3
+)
+
+add_entrypoint_object(
+  totalordermagf
+  SRCS
+    totalordermagf.cpp
+  HDRS
+    ../totalordermagf.h
+  DEPENDS
+    libc.src.__support.FPUtil.basic_operations
+  COMPILE_OPTIONS
+    -O3
+)
+
+add_entrypoint_object(
+  totalordermagl
+  SRCS
+    totalordermagl.cpp
+  HDRS
+    ../totalordermagl.h
+  DEPENDS
+    libc.src.__support.FPUtil.basic_operations
+  COMPILE_OPTIONS
+    -O3
+)
+
+add_entrypoint_object(
   totalordermagf16
   SRCS
     totalordermagf16.cpp
@@ -3973,6 +4029,19 @@ add_entrypoint_object(
     ../totalordermagf16.h
   DEPENDS
     libc.src.__support.FPUtil.basic_operations
+  COMPILE_OPTIONS
+    -O3
+)
+
+add_entrypoint_object(
+  totalordermagf128
+  SRCS
+    totalordermagf128.cpp
+  HDRS
+    ../totalordermagf128.h
+  DEPENDS
+    libc.src.__support.FPUtil.basic_operations
+    libc.src.__support.macros.properties.types
   COMPILE_OPTIONS
     -O3
 )
@@ -4182,7 +4251,7 @@ add_entrypoint_object(
     libc.src.__support.macros.properties.types
     libc.src.__support.FPUtil.fma
   COMPILE_OPTIONS
-    -O0 -ggdb3
+    -O3
 )
 
 add_entrypoint_object(
