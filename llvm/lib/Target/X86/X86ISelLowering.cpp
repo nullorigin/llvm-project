@@ -2475,8 +2475,12 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       (Subtarget.isTargetWindowsMSVC() || Subtarget.isTargetWindowsItanium()))
     // clang-format off
    for (ISD::NodeType Op :
-         {ISD::FCEIL,  ISD::STRICT_FCEIL,
+         {ISD::FACOS,  ISD::STRICT_FACOS,
+          ISD::FASIN,  ISD::STRICT_FASIN,
+          ISD::FATAN,  ISD::STRICT_FATAN,
+          ISD::FCEIL,  ISD::STRICT_FCEIL,
           ISD::FCOS,   ISD::STRICT_FCOS,
+          ISD::FCOSH,  ISD::STRICT_FCOSH,
           ISD::FEXP,   ISD::STRICT_FEXP,
           ISD::FFLOOR, ISD::STRICT_FFLOOR,
           ISD::FREM,   ISD::STRICT_FREM,
@@ -2484,7 +2488,9 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
           ISD::FLOG10, ISD::STRICT_FLOG10,
           ISD::FPOW,   ISD::STRICT_FPOW,
           ISD::FSIN,   ISD::STRICT_FSIN,
-          ISD::FTAN,   ISD::STRICT_FTAN})
+          ISD::FSINH,  ISD::STRICT_FSINH,
+          ISD::FTAN,   ISD::STRICT_FTAN,
+          ISD::FTANH,  ISD::STRICT_FTANH})
       if (isOperationExpand(Op, MVT::f32))
         setOperationAction(Op, MVT::f32, Promote);
   // clang-format on
@@ -34027,6 +34033,7 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(CVTNEPS2BF16)
   NODE_NAME_CASE(MCVTNEPS2BF16)
   NODE_NAME_CASE(DPBF16PS)
+  NODE_NAME_CASE(MPSADBW)
   NODE_NAME_CASE(LWPINS)
   NODE_NAME_CASE(MGATHER)
   NODE_NAME_CASE(MSCATTER)
